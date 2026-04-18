@@ -40,22 +40,41 @@ Deno.serve(async (req) => {
     }
 
     // 1) Fetch Reddit posts (public JSON endpoint)
-    const redditUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(
-      topic,
-    )}&sort=relevance&t=month&limit=25`;
-    const redditRes = await fetch(redditUrl, {
-      headers: { "User-Agent": "OpinionTracker/1.0 (lovable.dev)" },
-    });
+    // Reddit blocks default/unknown UAs from server IPs; use a browser-like UA and fall back across hosts.
+    const hosts = ["https://www.reddit.com", "https://old.reddit.com"];
+    const ua =
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-    if (!redditRes.ok) {
-      console.error("Reddit fetch failed:", redditRes.status);
+    let redditJson: any = null;
+    let lastStatus = 0;
+    for (const host of hosts) {
+      const url = `${host}/search.json?q=${encodeURIComponent(topic)}&sort=relevance&t=month&limit=25&raw_json=1`;
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent": ua,
+            Accept: "application/json,text/plain,*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+          },
+        });
+        lastStatus = res.status;
+        if (res.ok) {
+          redditJson = await res.json();
+          break;
+        }
+        console.error(`Reddit fetch failed at ${host}:`, res.status);
+        await res.body?.cancel();
+      } catch (err) {
+        console.error(`Reddit fetch error at ${host}:`, err);
+      }
+    }
+
+    if (!redditJson) {
       return new Response(
-        JSON.stringify({ error: "Could not reach Reddit. Try again in a moment." }),
+        JSON.stringify({ error: `Could not reach Reddit (status ${lastStatus}). Try again in a moment.` }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-
-    const redditJson = await redditRes.json();
     const posts: RedditPost[] = (redditJson?.data?.children ?? [])
       .map((c: any) => c.data)
       .filter((p: any) => p && (p.title || p.selftext))
