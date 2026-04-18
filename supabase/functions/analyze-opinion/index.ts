@@ -39,57 +39,70 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 1) Fetch Reddit posts (public JSON endpoint)
-    // Reddit blocks default/unknown UAs from server IPs; use a browser-like UA and fall back across hosts.
-    const hosts = ["https://www.reddit.com", "https://old.reddit.com"];
+    // 1) Fetch Reddit posts. Reddit blocks JSON from server IPs (403),
+    // but the public RSS search endpoint works. We parse it for titles/links.
     const ua =
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+    const rssUrl = `https://www.reddit.com/search.rss?q=${encodeURIComponent(topic)}&sort=relevance&t=month&limit=25`;
 
-    let redditJson: any = null;
-    let lastStatus = 0;
-    for (const host of hosts) {
-      const url = `${host}/search.json?q=${encodeURIComponent(topic)}&sort=relevance&t=month&limit=25&raw_json=1`;
-      try {
-        const res = await fetch(url, {
-          headers: {
-            "User-Agent": ua,
-            Accept: "application/json,text/plain,*/*",
-            "Accept-Language": "en-US,en;q=0.9",
-          },
-        });
-        lastStatus = res.status;
-        if (res.ok) {
-          redditJson = await res.json();
-          break;
-        }
-        console.error(`Reddit fetch failed at ${host}:`, res.status);
+    let rssText = "";
+    try {
+      const res = await fetch(rssUrl, {
+        headers: {
+          "User-Agent": ua,
+          Accept: "application/atom+xml,application/xml,text/xml,*/*",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+      });
+      if (!res.ok) {
+        console.error("Reddit RSS failed:", res.status);
         await res.body?.cancel();
-      } catch (err) {
-        console.error(`Reddit fetch error at ${host}:`, err);
+        return new Response(
+          JSON.stringify({ error: `Could not reach Reddit (status ${res.status}). Try again in a moment.` }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
-    }
-
-    if (!redditJson) {
+      rssText = await res.text();
+    } catch (err) {
+      console.error("Reddit RSS error:", err);
       return new Response(
-        JSON.stringify({ error: `Could not reach Reddit (status ${lastStatus}). Try again in a moment.` }),
+        JSON.stringify({ error: "Could not reach Reddit. Try again in a moment." }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-    const posts: RedditPost[] = (redditJson?.data?.children ?? [])
-      .map((c: any) => c.data)
-      .filter((p: any) => p && (p.title || p.selftext))
-      .slice(0, 20)
-      .map((p: any) => ({
-        id: p.id,
-        title: p.title ?? "",
-        selftext: (p.selftext ?? "").slice(0, 600),
-        subreddit: p.subreddit ?? "",
-        score: p.score ?? 0,
-        num_comments: p.num_comments ?? 0,
-        permalink: `https://reddit.com${p.permalink}`,
-        created_utc: p.created_utc ?? 0,
-        author: p.author ?? "unknown",
-      }));
+
+    // Parse Atom entries with regex (simple + no deps)
+    const decode = (s: string) =>
+      s
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&#x2F;/g, "/");
+    const stripHtml = (s: string) => decode(s.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+
+    const entries = [...rssText.matchAll(/<entry[\s\S]*?<\/entry>/g)].map((m) => m[0]);
+    const posts: RedditPost[] = entries.slice(0, 20).map((e, idx) => {
+      const title = stripHtml(e.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1] ?? "");
+      const link = (e.match(/<link[^>]*href="([^"]+)"/)?.[1] ?? "").replace(/&amp;/g, "&");
+      const author = stripHtml(e.match(/<author>[\s\S]*?<name>([\s\S]*?)<\/name>/)?.[1] ?? "unknown");
+      const content = stripHtml(e.match(/<content[^>]*>([\s\S]*?)<\/content>/)?.[1] ?? "").slice(0, 600);
+      const updated = e.match(/<updated>([\s\S]*?)<\/updated>/)?.[1] ?? "";
+      const subMatch = link.match(/reddit\.com\/r\/([^/]+)/);
+      const idMatch = link.match(/comments\/([a-z0-9]+)/);
+      return {
+        id: idMatch?.[1] ?? `entry-${idx}`,
+        title,
+        selftext: content,
+        subreddit: subMatch?.[1] ?? "",
+        score: 0,
+        num_comments: 0,
+        permalink: link,
+        created_utc: updated ? Math.floor(new Date(updated).getTime() / 1000) : 0,
+        author: author.replace(/^\/u\//, ""),
+      };
+    }).filter((p) => p.title);
 
     if (posts.length === 0) {
       return new Response(
