@@ -101,7 +101,7 @@ const Index = () => {
               disabled={loading}
               className="h-14 px-8 rounded-none bg-foreground text-background hover:bg-accent uppercase tracking-widest font-bold text-sm"
             >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Read the Room"}
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "ANALYZE"}
             </Button>
           </form>
 
