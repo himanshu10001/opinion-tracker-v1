@@ -80,7 +80,8 @@ Deno.serve(async (req) => {
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
         .replace(/&#x2F;/g, "/");
-    const stripHtml = (s: string) => decode(s.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+    // Decode entities first (RSS double-encodes HTML), then strip tags, then decode again for any remaining entities.
+    const stripHtml = (s: string) => decode(decode(s).replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
 
     const entries = [...rssText.matchAll(/<entry[\s\S]*?<\/entry>/g)].map((m) => m[0]);
     const posts: RedditPost[] = entries.slice(0, 20).map((e, idx) => {
