@@ -13,7 +13,18 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        display: ['Fraunces', 'Georgia', 'serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+      },
       colors: {
+        positive: "hsl(var(--positive))",
+        neutral: "hsl(var(--neutral))",
+        negative: "hsl(var(--negative))",
+        ink: "hsl(var(--ink))",
+        paper: "hsl(var(--paper))",
+        highlight: "hsl(var(--highlight))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
