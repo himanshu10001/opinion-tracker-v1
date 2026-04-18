@@ -1,1 +1,4 @@
 project_id = "bvwgqzqsyoanvmgwvjwl"
+
+[functions.analyze-opinion]
+verify_jwt = false
