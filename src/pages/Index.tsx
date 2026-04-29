@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,18 @@ const Index = () => {
   const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Analysis | null>(null);
+  const [istTime, setIstTime] = useState<string>(() =>
+    new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false })
+  );
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setIstTime(
+        new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false })
+      );
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const analyze = async (q: string) => {
     const term = q.trim();
@@ -63,7 +75,7 @@ const Index = () => {
       {/* Masthead */}
       <header className="border-b-[3px] border-foreground">
         <div className="container py-3 flex items-center justify-between text-xs font-mono uppercase tracking-widest">
-          <span>Vol. 01 · Lovable Press</span>
+          <span>{istTime} IST</span>
           <span className="hidden sm:inline">{new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
           <span className="flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> AI Edition</span>
         </div>
