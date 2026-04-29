@@ -244,8 +244,7 @@ const Index = () => {
       )}
 
       <footer className="border-t-[3px] border-foreground mt-10">
-        <div className="container py-6 flex items-center justify-between text-xs font-mono uppercase tracking-widest text-muted-foreground">
-          <span>© Lovable Press</span>
+        <div className="container py-6 flex items-center justify-end text-xs font-mono uppercase tracking-widest text-muted-foreground">
           <span>Powered by Reddit + AI</span>
         </div>
       </footer>
