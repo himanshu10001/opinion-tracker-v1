@@ -188,7 +188,7 @@ const Index = () => {
                 <h3 className="font-display font-bold text-3xl md:text-4xl mb-8">Dominant Themes</h3>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {data.themes.map((t, i) => (
-                    <ThemeChip key={i} {...t} index={i + 1} topic={data.topic} />
+                    <ThemeChip key={i} {...t} index={i + 1} />
                   ))}
                 </div>
               </div>
